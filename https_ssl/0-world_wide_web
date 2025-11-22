@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Function to fetch DNS info for a subdomain
+
+
+fetch_info() {
+    local domain=$1
+    local sub=$2
+    local full="${sub}.${domain}"
+
+    # Use dig and awk to parse ANSWER SECTION
+    local output
+    output=$(dig "$full" +short)
+
+    # If dig +short is empty, try parsing ANSWER SECTION
+    if [ -z "$output" ]; then
+        output=$(dig "$full" | awk '/ANSWER SECTION:/ {getline; print}')
+        record_type=$(echo "$output" | awk '{print $4}')
+        destination=$(echo "$output" | awk '{print $5}')
+    else
+        record_type="A"
+        destination="$output"
+    fi
+
+    echo "The subdomain $sub is a $record_type record and points to $destination"
+}
+
+domain=$1
+sub=$2
+
+if [ -z "$domain" ]; then
+    echo "Usage: $0 <domain> [subdomain]"
+    exit 1
+fi
+
+# If no subdomain is specified, loop through default list
+if [ -z "$sub" ]; then
+    for s in www lb-01 web-01 web-02; do
+        fetch_info "$domain" "$s"
+    done
+else
+    fetch_info "$domain" "$sub"
+fi
