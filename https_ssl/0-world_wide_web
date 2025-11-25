@@ -1,38 +1,47 @@
 #!/usr/bin/env bash
-# Function to fetch DNS info for a subdomain
-
-
-fetch_info() {
-    local domain=$1
-    local sub=$2
-    local full="${sub}.${domain}"
-
-    # Use dig and awk to parse ANSWER SECTION
-    local output
-    output=$(dig "$full" +short)
-
-    # If dig +short is empty, try parsing ANSWER SECTION
-    if [ -z "$output" ]; then
-        output=$(dig "$full" | awk '/ANSWER SECTION:/ {getline; print}')
-        record_type=$(echo "$output" | awk '{print $4}')
-        destination=$(echo "$output" | awk '{print $5}')
-    else
-        record_type="A"
-        destination="$output"
-    fi
-
-    echo "The subdomain $sub is a $record_type record and points to $destination"
-}
+# 0-world_wide_web
+# Given a domain and optional subdomain, display DNS info for
+# www, lb-01, web-01, web-02 (or only the specified subdomain).
+# Uses dig and awk to parse the ANSWER SECTION.
 
 domain=$1
 sub=$2
+
+fetch_info() {
+    local domain="$1"
+    local sub="$2"
+    local full="${sub}.${domain}"
+
+    # Try to get the ANSWER SECTION line (first answer)
+    # This prints the next line after "ANSWER SECTION:" (if present)
+    local answer_line
+    answer_line=$(dig "$full" | awk '/ANSWER SECTION:/{getline; print; exit}')
+
+    local record_type dest
+
+    if [ -n "$answer_line" ]; then
+        # ANSWER SECTION line format: name ttl IN TYPE VALUE ...
+        record_type=$(echo "$answer_line" | awk '{print $4}')
+        dest=$(echo "$answer_line" | awk '{print $5}')
+    else
+        # Fallback: use dig +short (usually returns the IPv4 address)
+        dest=$(dig +short "$full" | awk 'NR==1{print $0}')
+        if [ -n "$dest" ]; then
+            record_type="A"
+        else
+            record_type="UNKNOWN"
+            dest=""
+        fi
+    fi
+
+    printf "The subdomain %s is a %s record and points to %s\n" "$sub" "$record_type" "$dest"
+}
 
 if [ -z "$domain" ]; then
     echo "Usage: $0 <domain> [subdomain]"
     exit 1
 fi
 
-# If no subdomain is specified, loop through default list
 if [ -z "$sub" ]; then
     for s in www lb-01 web-01 web-02; do
         fetch_info "$domain" "$s"
@@ -40,3 +49,4 @@ if [ -z "$sub" ]; then
 else
     fetch_info "$domain" "$sub"
 fi
+
