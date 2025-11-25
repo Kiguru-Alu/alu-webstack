@@ -44,6 +44,6 @@ frontend balancer_http_in
 
 backend balancer_http_out
     balance roundrobin
-    server web-01 3.82.220.109:80 check
-    server web-02 13.221.82.220:80 check
+    server web-01 44.201.90.229:80 check
+    server web-02 44.206.243.220:80 check
     http-response set-header X-Served-By %[srv_name]
